@@ -1,0 +1,3 @@
+node_modules
+.next
+.env.localNODE_MODULES_PATTERN=node_modules
