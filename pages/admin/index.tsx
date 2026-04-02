@@ -22,7 +22,7 @@ interface Employee {
 
 export default function AdminDashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const { data: stats } = useApi(`/api/admin/stats?date=${selectedDate}`);
+  const { data: stats } = useApi<any>('/api/admin/stats');
   const { data: employees } = useApi<Employee[]>('/api/admin/employees');
 
   const StatCard = ({

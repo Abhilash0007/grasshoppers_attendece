@@ -39,7 +39,7 @@ React.useEffect(() => {
       }
 
       const endpoint = type === 'in' ? '/api/punch/in' : '/api/punch/out';
-      const data = await post<{ success: boolean; data: PunchRecord }>(endpoint, {
+      const data = await post<{ success: boolean; data: PunchRecord; error?: string }>(endpoint, {
         latitude: location?.latitude || 0,
         longitude: location?.longitude || 0,
       });
