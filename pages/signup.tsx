@@ -14,6 +14,7 @@ export default function SignupPage() {
     phone: '',
     department: '',
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const { signup } = useAuth();
   const router = useRouter();
@@ -23,8 +24,7 @@ export default function SignupPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // const handleSubmit = async (e: React.FormEvent) => {
-    const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
 
     // Validation
@@ -48,10 +48,15 @@ export default function SignupPage() {
         phone: formData.phone,
         department: formData.department,
       });
+
       toast.success('Account created successfully!');
       router.push('/dashboard');
+      return; // ✅ important
+
     } catch (error: any) {
-      toast.error(error.message || 'Signup failed');
+      toast.error(error?.message || 'Signup failed');
+      return; // ✅ important
+
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +66,7 @@ export default function SignupPage() {
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 px-4 py-12">
       <div className="w-full max-w-md">
         <div className="card border-2 border-green-200">
+
           {/* Logo */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-green-600 mb-2">🦗</h1>
@@ -70,6 +76,7 @@ export default function SignupPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Full Name
@@ -118,7 +125,7 @@ export default function SignupPage() {
                   value={formData.phone}
                   onChange={handleChange}
                   className="input pl-10"
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+91 9876543210"
                 />
               </div>
             </div>
@@ -180,6 +187,7 @@ export default function SignupPage() {
             >
               {isLoading ? 'Creating Account...' : 'Sign Up'}
             </button>
+
           </form>
 
           {/* Divider */}
@@ -198,6 +206,7 @@ export default function SignupPage() {
               </Link>
             </p>
           </div>
+
         </div>
       </div>
     </div>

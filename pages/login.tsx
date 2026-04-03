@@ -12,8 +12,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
 
-  // const handleSubmit = async (e: React.FormEvent) => {
-    const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -21,8 +20,10 @@ export default function LoginPage() {
       await login(email, password);
       toast.success('Login successful!');
       router.push('/dashboard');
+      return; // ✅ ensure consistent return
     } catch (error: any) {
-      toast.error(error.message || 'Login failed');
+      toast.error(error?.message || 'Login failed');
+      return; // ✅ ensure consistent return
     } finally {
       setIsLoading(false);
     }
@@ -32,6 +33,7 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="w-full max-w-md">
         <div className="card border-2 border-blue-200">
+          
           {/* Logo */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-blue-600 mb-2">🦗</h1>
@@ -41,6 +43,7 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Email Address
@@ -82,6 +85,7 @@ export default function LoginPage() {
             >
               {isLoading ? 'Logging in...' : 'Login'}
             </button>
+
           </form>
 
           {/* Divider */}
@@ -107,6 +111,7 @@ export default function LoginPage() {
             <p className="text-xs text-gray-600">Email: demo@example.com</p>
             <p className="text-xs text-gray-600">Password: password123</p>
           </div>
+
         </div>
       </div>
     </div>

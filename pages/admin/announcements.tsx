@@ -31,18 +31,22 @@ export default function AdminAnnouncements() {
     priority: 'medium' as 'low' | 'medium' | 'high',
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // ✅ FIXED
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
 
     if (!formData.title || !formData.description || !formData.content) {
-      return toast.error('Fill all fields');
+      toast.error('Fill all fields');
+      return;
     }
 
     setLoading(true);
 
     try {
       const method = editingId ? 'PUT' : 'POST';
-      const url = editingId ? `/api/announcements/${editingId}` : '/api/announcements';
+      const url = editingId
+        ? `/api/announcements/${editingId}`
+        : '/api/announcements';
 
       const res = await fetch(url, {
         method,
@@ -57,18 +61,29 @@ export default function AdminAnnouncements() {
 
       toast.success(editingId ? 'Updated ✨' : 'Created ✨');
 
-      setFormData({ title: '', description: '', content: '', priority: 'medium' });
+      setFormData({
+        title: '',
+        description: '',
+        content: '',
+        priority: 'medium',
+      });
+
       setEditingId(null);
       setShowForm(false);
       mutate();
+
+      return; // ✅ important
+
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err?.message || 'Something went wrong');
+      return; // ✅ important
+
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string): Promise<void> => {
     if (!confirm('Delete this announcement?')) return;
 
     try {
@@ -79,23 +94,28 @@ export default function AdminAnnouncements() {
 
       toast.success('Deleted');
       mutate();
+
+      return; // ✅
+
     } catch {
       toast.error('Failed');
+      return; // ✅
     }
   };
 
-  const handleEdit = (a: Announcement) => {
+  const handleEdit = (a: Announcement): void => {
     setFormData({
       title: a.title,
       description: a.description,
       content: a.content,
       priority: a.priority,
     });
+
     setEditingId(a._id);
     setShowForm(true);
   };
 
-  const priorityStyle = (p: string) => {
+  const priorityStyle = (p: string): string => {
     if (p === 'high') return 'bg-red-500/20 text-red-400';
     if (p === 'medium') return 'bg-yellow-500/20 text-yellow-400';
     return 'bg-green-500/20 text-green-400';
@@ -131,7 +151,7 @@ export default function AdminAnnouncements() {
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm">
 
-            <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-slide-up">
+            <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl">
 
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-gray-900">
@@ -147,27 +167,38 @@ export default function AdminAnnouncements() {
                 <input
                   placeholder="Title"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full border border-gray-200 px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full border border-gray-200 px-4 py-2 rounded-xl"
                 />
 
                 <textarea
                   placeholder="Short description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   className="w-full border border-gray-200 px-4 py-2 rounded-xl"
                 />
 
                 <textarea
                   placeholder="Full content"
                   value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, content: e.target.value })
+                  }
                   className="w-full border border-gray-200 px-4 py-2 rounded-xl h-32"
                 />
 
                 <select
                   value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      priority: e.target.value as any,
+                    })
+                  }
                   className="w-full border border-gray-200 px-4 py-2 rounded-xl"
                 >
                   <option value="low">Low</option>
@@ -177,10 +208,12 @@ export default function AdminAnnouncements() {
 
                 <button
                   type="submit"
+                  disabled={loading}
                   className="w-full py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold"
                 >
                   {loading ? 'Saving...' : 'Save'}
                 </button>
+
               </form>
             </div>
           </div>
@@ -197,7 +230,7 @@ export default function AdminAnnouncements() {
             announcements.map((a) => (
               <div
                 key={a._id}
-                className="bg-gradient-to-br from-gray-900 to-black text-white rounded-2xl p-5 shadow-lg hover:scale-[1.02] transition"
+                className="bg-gradient-to-br from-gray-900 to-black text-white rounded-2xl p-5 shadow-lg"
               >
                 <div className="flex justify-between items-start gap-3">
 
@@ -219,24 +252,20 @@ export default function AdminAnnouncements() {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(a)}
-                      className="p-2 hover:bg-white/10 rounded-lg"
-                    >
+                    <button onClick={() => handleEdit(a)} className="p-2 hover:bg-white/10 rounded-lg">
                       <FiEdit2 />
                     </button>
 
-                    <button
-                      onClick={() => handleDelete(a._id)}
-                      className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg"
-                    >
+                    <button onClick={() => handleDelete(a._id)} className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg">
                       <FiTrash2 />
                     </button>
                   </div>
+
                 </div>
               </div>
             ))
           )}
+
         </div>
       </div>
     </PrivateRoute>
