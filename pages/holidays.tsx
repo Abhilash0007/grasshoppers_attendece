@@ -29,31 +29,51 @@ export default function HolidaysPage() {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddHoliday = async (e: React.FormEvent) => {
+  // ✅ FIXED FUNCTION
+  const handleAddHoliday = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!isAdmin) return toast.error('Only admins allowed');
+
+    if (!isAdmin) {
+      toast.error('Only admins allowed');
+      return;
+    }
+
+    if (!formData.name || !formData.date) {
+      toast.error('Fill required fields');
+      return;
+    }
 
     setIsLoading(true);
+
     try {
-      const res = await post('/api/holidays', {
+      const res = await post<{ success: boolean }>('/api/holidays', {
         ...formData,
         isRecurring: false,
       });
 
-      if (res.success) {
+      if (res?.success) {
         toast.success('Holiday added ✨');
         setShowForm(false);
-        setFormData({ name: '', date: '', type: 'national', description: '' });
+        setFormData({
+          name: '',
+          date: '',
+          type: 'national',
+          description: '',
+        });
         mutate();
+      } else {
+        toast.error('Failed to add holiday');
       }
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || 'Error adding holiday');
     } finally {
       setIsLoading(false);
     }
+
+    return; // ✅ IMPORTANT FIX
   };
 
-  const handleDeleteHoliday = async (id: string) => {
+  const handleDeleteHoliday = async (id: string): Promise<void> => {
     if (!confirm('Delete this holiday?')) return;
 
     try {
@@ -63,10 +83,12 @@ export default function HolidaysPage() {
     } catch {
       toast.error('Failed');
     }
+
+    return; // ✅ safe
   };
 
   const grouped =
-    holidays?.reduce((acc: any, h) => {
+    holidays?.reduce((acc: Record<string, Holiday[]>, h) => {
       const m = format(new Date(h.date), 'MMMM');
       if (!acc[m]) acc[m] = [];
       acc[m].push(h);
@@ -102,11 +124,11 @@ export default function HolidaysPage() {
           )}
         </div>
 
-        {/* MODAL FORM */}
+        {/* MODAL */}
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm">
 
-            <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-slide-up">
+            <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl">
 
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-gray-900">New Holiday</h3>
@@ -123,7 +145,7 @@ export default function HolidaysPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="w-full border border-gray-200 px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-200 px-4 py-2 rounded-xl"
                   required
                 />
 
@@ -133,7 +155,7 @@ export default function HolidaysPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, date: e.target.value })
                   }
-                  className="w-full border border-gray-200 px-4 py-2 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-200 px-4 py-2 rounded-xl"
                   required
                 />
 
@@ -169,16 +191,15 @@ export default function HolidaysPage() {
               No holidays found
             </div>
           ) : (
-            Object.entries(grouped).map(([month, list]: any) => (
+            Object.entries(grouped).map(([month, list]) => (
               <div key={month}>
-
                 <h3 className="text-sm text-gray-500 mb-3">{month}</h3>
 
                 <div className="space-y-3">
-                  {list.map((h: Holiday) => (
+                  {(list as Holiday[]).map((h) => (
                     <div
                       key={h._id}
-                      className="flex items-center justify-between bg-gradient-to-br from-gray-900 to-black text-white rounded-2xl p-4 shadow-lg hover:scale-[1.02] transition"
+                      className="flex items-center justify-between bg-gradient-to-br from-gray-900 to-black text-white rounded-2xl p-4 shadow-lg"
                     >
                       <div>
                         <p className="font-semibold">{h.name}</p>
