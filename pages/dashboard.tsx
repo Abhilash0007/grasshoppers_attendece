@@ -35,17 +35,19 @@ export default function DashboardPage() {
     new Date(today.punchInTime).toDateString() === new Date().toDateString();
 
   // Work timer
-  React.useEffect(() => {
-    if (isToday && today?.punchInTime && !today?.punchOutTime) {
-      const interval = setInterval(() => {
-        const start = new Date(today.punchInTime).getTime();
-        const now = Date.now();
-        setWorkTime(Math.floor((now - start) / 1000));
-      }, 1000);
+React.useEffect(() => {
+  if (!(isToday && today?.punchInTime && !today?.punchOutTime)) {
+    return;
+  }
 
-      return () => clearInterval(interval);
-    }
-  }, [today, isToday]);
+  const interval = setInterval(() => {
+    const start = new Date(today.punchInTime).getTime();
+    const now = Date.now();
+    setWorkTime(Math.floor((now - start) / 1000));
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [today, isToday]);
 
   const formatWorkTime = (sec: number) => {
     const h = Math.floor(sec / 3600);
