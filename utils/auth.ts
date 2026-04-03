@@ -6,6 +6,7 @@ const SECRET = process.env.JWT_SECRET || 'your-secret-key';
 export interface TokenPayload {
   userId: string;
   email: string;
+  name?: string;
   role: string;
 }
 
@@ -14,6 +15,7 @@ export const generateToken = (user: any): string => {
     {
       userId: user._id,
       email: user.email,
+      name: user.name,
       role: user.role,
     },
     SECRET,

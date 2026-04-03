@@ -4,6 +4,7 @@ import { PunchRecord } from '@/lib/models/PunchRecord';
 import { User } from '@/lib/models/User';
 import { verifyToken } from '@/utils/auth';
 import { sendPunchNotificationEmail } from '@/utils/email';
+import { sendPushNotification } from '@/utils/push-notification';
 
 export default async function handler(
   req: NextApiRequest,
@@ -64,11 +65,32 @@ export default async function handler(
 
     await punchRecord.save();
 
-    // Send notification to admin
+    // Send notifications
     const admin = await User.findOne({ role: 'admin' });
     const user = await User.findById(userId);
-    if (admin && user && process.env.ENABLE_NOTIFICATIONS === 'true') {
-      await sendPunchNotificationEmail(admin.email, user.name, 'punch-in', new Date());
+    
+    if (admin && user) {
+      // Send email notification
+      if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+        await sendPunchNotificationEmail(admin.email, user.name, 'punch-in', new Date());
+      }
+
+      // Send push notification to user device
+      if (process.env.ENABLE_PUSH_NOTIFICATIONS === 'true' && user.pushSubscription) {
+        try {
+          await sendPushNotification(user.pushSubscription, {
+            title: '✅ Punch In Successful',
+            body: `You punched in at ${new Date().toLocaleTimeString()}`,
+            tag: 'punch-notification',
+            data: {
+              type: 'punch-in',
+              punchTime: new Date().toISOString(),
+            },
+          });
+        } catch (pushError) {
+          console.error('Error sending push notification:', pushError);
+        }
+      }
     }
 
     res.status(201).json({

@@ -1,118 +1,225 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { PrivateRoute } from '@/components/PrivateRoute';
-import { Clock } from '@/components/Clock';
-import { PunchButton } from '@/components/PunchButton';
-import { PunchHistory } from '@/components/PunchHistory';
 import { useAuth } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
 import { PunchRecord } from '@/types';
 import { format } from 'date-fns';
-import { FiClock, FiLogOut, FiInfo, FiMapPin } from 'react-icons/fi';
+import { FiHome, FiUsers, FiBarChart2 } from 'react-icons/fi';
+import { SwipePunch } from '@/components/SwipePunch';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: todayPunch, mutate: mutatePunch } = useApi<PunchRecord[]>(
-    '/api/punch/history?limit=1'
+  const [time, setTime] = React.useState(new Date());
+  const [limit, setLimit] = React.useState(3);
+  const [workTime, setWorkTime] = React.useState(0);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  // Detect mobile vs desktop
+  React.useEffect(() => {
+    const checkDevice = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+
+  // Live clock
+  React.useEffect(() => {
+    const interval = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { data: history, mutate } = useApi<PunchRecord[]>(
+    `/api/punch/history?limit=${limit}`
   );
 
-  const handlePunchSuccess = () => {
-    mutatePunch();
+  const today = history?.[0];
+
+  // Check if today punched
+  const isToday =
+    today?.punchInTime &&
+    new Date(today.punchInTime).toDateString() === new Date().toDateString();
+
+  // Live work timer
+  React.useEffect(() => {
+    if (isToday && today?.punchInTime && !today?.punchOutTime) {
+      const interval = setInterval(() => {
+        const start = new Date(today.punchInTime).getTime();
+        const now = new Date().getTime();
+        setWorkTime(Math.floor((now - start) / 1000));
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [today, isToday]);
+
+  const formatWorkTime = (sec: number) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    return `${h}h ${m}m ${s}s`;
   };
 
-  const today = todayPunch?.[0];
+  // Status logic
+  const status = !isToday
+    ? 'Not Punched'
+    : today?.punchOutTime
+    ? 'Completed'
+    : 'Working';
 
   return (
     <PrivateRoute>
-      <div className="min-h-screen py-6 md:py-8">
-        {/* Header Section */}
-        <div className="max-w-6xl mx-auto px-4 mb-8">
-          <div className="animate-slide-in-down">
-            <h1 className="heading-1 mb-3">Welcome back! 👋</h1>
-            <p className="text-lg text-gray-600">{user?.name ?? 'Employee'} • {format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-50 to-white flex justify-center">
+        <div className="w-full max-w-md min-h-screen flex flex-col">
 
-        <div className="max-w-6xl mx-auto px-4 space-y-6">
-          {/* Real-time Clock */}
-          <div className="gradient-box from-blue-600 via-indigo-600 to-purple-600 text-white animate-slide-in-up">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold opacity-90">Current Time</h2>
-              <FiClock className="w-6 h-6 opacity-75" />
-            </div>
-            <Clock />
+          {/* HEADER */}
+          <div className="p-5 pb-2">
+            <p className="text-xs text-gray-400">
+              {format(new Date(), 'EEEE, MMM d')}
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Hi, {user?.name || 'Employee'} 👋
+            </h1>
           </div>
 
-          {/* Status Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-slide-in-up">
-            {/* Punch In Status */}
-            <div className="stat-card bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200/50">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl text-white">
-                  <FiClock className="w-6 h-6" />
-                </div>
-                <span className="text-sm font-semibold text-green-700">Status</span>
-              </div>
-              <p className="text-sm text-gray-600 mb-1">Punched In</p>
-              {today?.punchInTime ? (
-                <p className="text-3xl font-bold text-green-600">
-                  {format(new Date(today.punchInTime), 'HH:mm')}
+          {/* CONTENT */}
+          <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-6">
+
+            {/* PREMIUM PUNCH CARD */}
+            <div className="relative rounded-3xl p-6 text-white shadow-2xl overflow-hidden bg-gradient-to-br from-black via-gray-900 to-gray-800">
+
+              <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-blue-500/10 blur-2xl opacity-40" />
+
+              <div className="relative z-10">
+                <p className="text-xs opacity-70">Current Time</p>
+
+                <p className="text-3xl font-bold tracking-widest mt-1 animate-pulse">
+                  {format(time, 'HH:mm:ss')}
                 </p>
-              ) : (
-                <p className="text-3xl font-bold text-gray-400">—</p>
-              )}
-            </div>
 
-            {/* Punch Out Status */}
-            <div className="stat-card bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-200/50">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-gradient-to-br from-red-500 to-rose-500 rounded-xl text-white">
-                  <FiLogOut className="w-6 h-6" />
+                {/* STATUS */}
+                <div className="mt-4 flex justify-between items-center">
+                  <span className="text-sm opacity-80">Status</span>
+
+                  <span
+                    className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                      status === 'Working'
+                        ? 'bg-green-500/20 text-green-400'
+                        : status === 'Completed'
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-gray-500/20 text-gray-300'
+                    }`}
+                  >
+                    {status}
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-red-700">Status</span>
+
+                {/* LIVE TIMER */}
+                {status === 'Working' && (
+                  <div className="mt-3 text-xs text-green-300">
+                    ⏱ {formatWorkTime(workTime)}
+                  </div>
+                )}
+
+                {/* ✅ DEVICE BASED BUTTON */}
+                <div className="mt-6">
+                  {isMobile ? (
+<SwipePunch
+  onPunch={() => mutate()}
+  status={status}
+/>                  ) : (
+                    <button
+                      onClick={() => mutate()}
+                      className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold shadow-lg transition active:scale-95"
+                    >
+                      {status === 'Working'
+                        ? 'Punch Out'
+                        : status === 'Completed'
+                        ? 'Completed'
+                        : 'Punch In'}
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mb-1">Punched Out</p>
-              {today?.punchOutTime ? (
-                <p className="text-3xl font-bold text-red-600">
-                  {format(new Date(today.punchOutTime), 'HH:mm')}
-                </p>
-              ) : (
-                <p className="text-3xl font-bold text-gray-400">—</p>
-              )}
+            </div>
+
+            {/* STATS */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white/70 backdrop-blur-xl border border-gray-200 p-4 rounded-2xl shadow-sm">
+                <p className="text-xs text-gray-400">In Time</p>
+                <h3 className="text-lg font-bold">
+                  {today?.punchInTime
+                    ? format(new Date(today.punchInTime), 'HH:mm')
+                    : '--'}
+                </h3>
+              </div>
+
+              <div className="bg-white/70 backdrop-blur-xl border border-gray-200 p-4 rounded-2xl shadow-sm">
+                <p className="text-xs text-gray-400">Out Time</p>
+                <h3 className="text-lg font-bold">
+                  {today?.punchOutTime
+                    ? format(new Date(today.punchOutTime), 'HH:mm')
+                    : '--'}
+                </h3>
+              </div>
+            </div>
+
+            {/* TIMELINE */}
+            <div className="space-y-4">
+              <h2 className="text-sm font-semibold text-gray-500">
+                Recent Activity
+              </h2>
+
+              {history?.map((item, index) => (
+                <div
+                  key={index}
+                  className="relative bg-white/80 backdrop-blur-xl border border-gray-200 p-4 rounded-2xl shadow-sm"
+                >
+                  <div className="absolute left-[-6px] top-5 w-3 h-3 bg-green-500 rounded-full" />
+
+                  <p className="text-xs text-gray-400">
+                    {format(new Date(item.punchInTime), 'EEE, MMM d')}
+                  </p>
+
+                  <div className="flex justify-between mt-1 text-sm font-semibold">
+                    <span>
+                      {format(new Date(item.punchInTime), 'HH:mm')}
+                    </span>
+                    <span>
+                      {item.punchOutTime
+                        ? format(new Date(item.punchOutTime), 'HH:mm')
+                        : '--'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {/* LOAD MORE */}
+              <div className="text-center">
+                <button
+                  onClick={() => setLimit((prev) => prev + 3)}
+                  className="text-sm font-semibold text-gray-500 hover:text-black"
+                >
+                  Load More
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Work Duration Card */}
-          {today?.workDuration && (
-            <div className="stat-card bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200/50 animate-slide-in-up">
-              <p className="text-sm text-gray-600 mb-2">Total Work Duration</p>
-              <p className="text-4xl font-bold text-purple-600">
-                {Math.floor(today.workDuration / 60)}h {today.workDuration % 60}m
-              </p>
-              <p className="text-xs text-gray-500 mt-2">Today's work time</p>
+          {/* BOTTOM NAV */}
+          <div className="fixed bottom-0 w-full max-w-md bg-white/80 backdrop-blur-xl border-t flex justify-around py-3 text-xs shadow-lg">
+            <div className="flex flex-col items-center text-black">
+              <FiHome />
+              Home
             </div>
-          )}
-
-          {/* Punch Buttons Section */}
-          <div className="card animate-slide-in-up">
-            <h2 className="heading-3 mb-6 text-center">Punch In / Out</h2>
-            <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-              <PunchButton onSuccess={handlePunchSuccess} />
+            <div className="flex flex-col items-center text-gray-400">
+              <FiUsers />
+              Team
             </div>
-          </div>
-
-          {/* Punch History */}
-          <div className="animate-slide-in-up">
-            <PunchHistory limit={10} />
-          </div>
-
-          {/* Info Banner */}
-          <div className="card bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-2 border-blue-200/50 flex items-start gap-4">
-            <div className="p-3 bg-blue-500/20 rounded-xl flex-shrink-0">
-              <FiInfo className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900 mb-1">Location Tracking Active</p>
-              <p className="text-sm text-gray-600">Your location will be recorded when you punch in/out for accurate attendance tracking.</p>
+            <div className="flex flex-col items-center text-gray-400">
+              <FiBarChart2 />
+              Stats
             </div>
           </div>
         </div>
