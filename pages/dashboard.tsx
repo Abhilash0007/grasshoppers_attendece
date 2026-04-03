@@ -1,31 +1,22 @@
+'use client';
+
 import React from 'react';
 import { PrivateRoute } from '@/components/PrivateRoute';
 import { useAuth } from '@/context/auth';
 import { useApi } from '@/hooks/useApi';
+import { useApiCall } from '@/hooks/useApi';
 import { PunchRecord } from '@/types';
 import { format } from 'date-fns';
 import { FiHome, FiUsers, FiBarChart2 } from 'react-icons/fi';
-import { SwipePunch } from '@/components/SwipePunch';
+import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { post } = useApiCall();
 
   const [time, setTime] = React.useState(new Date());
   const [limit, setLimit] = React.useState(3);
   const [workTime, setWorkTime] = React.useState(0);
-  const [isMobile, setIsMobile] = React.useState(false);
-
-  // Detect mobile
-  React.useEffect(() => {
-    const checkDevice = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    checkDevice();
-    window.addEventListener('resize', checkDevice);
-
-    return () => window.removeEventListener('resize', checkDevice);
-  }, []);
 
   // Live clock
   React.useEffect(() => {
@@ -43,8 +34,8 @@ export default function DashboardPage() {
     today?.punchInTime &&
     new Date(today.punchInTime).toDateString() === new Date().toDateString();
 
-  // ✅ FIXED useEffect
-  React.useEffect((): void | (() => void) => {
+  // Work timer
+  React.useEffect(() => {
     if (isToday && today?.punchInTime && !today?.punchOutTime) {
       const interval = setInterval(() => {
         const start = new Date(today.punchInTime).getTime();
@@ -54,8 +45,6 @@ export default function DashboardPage() {
 
       return () => clearInterval(interval);
     }
-
-    return; // ✅ important
   }, [today, isToday]);
 
   const formatWorkTime = (sec: number) => {
@@ -65,11 +54,26 @@ export default function DashboardPage() {
     return `${h}h ${m}m ${s}s`;
   };
 
-  const status = !isToday
-    ? 'Not Punched'
-    : today?.punchOutTime
-    ? 'Completed'
-    : 'Working';
+  const status =
+    !isToday ? 'Not Punched' : today?.punchOutTime ? 'Completed' : 'Working';
+
+  // Punch handler
+  const handlePunch = async () => {
+    try {
+      const endpoint =
+        status === 'Working' ? '/api/punch/out' : '/api/punch/in';
+
+      await post(endpoint, {});
+
+      toast.success(
+        status === 'Working' ? 'Punched Out ✅' : 'Punched In ✅'
+      );
+
+      mutate();
+    } catch (err: any) {
+      toast.error(err.message || 'Punch failed');
+    }
+  };
 
   return (
     <PrivateRoute>
@@ -90,7 +94,7 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-6">
 
             {/* PUNCH CARD */}
-            <div className="relative rounded-3xl p-6 text-white shadow-2xl bg-gradient-to-br from-black via-gray-900 to-gray-800">
+            <div className="rounded-3xl p-6 text-white shadow-2xl bg-gradient-to-br from-black via-gray-900 to-gray-800">
 
               <p className="text-xs opacity-70">Current Time</p>
 
@@ -105,7 +109,7 @@ export default function DashboardPage() {
                 <span
                   className={`text-xs font-semibold px-3 py-1 rounded-full ${
                     status === 'Working'
-                      ? 'bg-green-500/20 text-green-400'
+                      ? 'bg-green-500/20 text-green-400 animate-pulse'
                       : status === 'Completed'
                       ? 'bg-blue-500/20 text-blue-400'
                       : 'bg-gray-500/20 text-gray-300'
@@ -115,29 +119,42 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              {/* TIMER */}
+              {/* LIVE TIMER */}
               {status === 'Working' && (
                 <div className="mt-3 text-xs text-green-300">
                   ⏱ {formatWorkTime(workTime)}
                 </div>
               )}
 
-              {/* BUTTON */}
+              {/* 🔥 PREMIUM BUTTON */}
               <div className="mt-6">
-                {isMobile ? (
-                  <SwipePunch onPunch={() => mutate()} status={status} />
-                ) : (
-                  <button
-                    onClick={() => mutate()}
-                    className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold"
-                  >
+                <button
+                  onClick={handlePunch}
+                  disabled={status === 'Completed'}
+                  className={`
+                    relative w-full py-4 rounded-2xl font-semibold text-lg tracking-wide
+                    transition-all duration-300 active:scale-95 overflow-hidden
+                    ${
+                      status === 'Working'
+                        ? 'bg-gradient-to-r from-red-500 to-pink-600 shadow-lg shadow-red-500/30'
+                        : status === 'Completed'
+                        ? 'bg-gray-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg shadow-green-500/30'
+                    }
+                  `}
+                >
+                  {/* Glow */}
+                  <span className="absolute inset-0 bg-white/10 blur-xl opacity-30" />
+
+                  {/* Text */}
+                  <span className="relative z-10 text-white">
                     {status === 'Working'
-                      ? 'Punch Out'
+                      ? 'Punch Out ⏳'
                       : status === 'Completed'
-                      ? 'Completed'
-                      : 'Punch In'}
-                  </button>
-                )}
+                      ? 'Completed ✅'
+                      : 'Punch In 🚀'}
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -188,7 +205,7 @@ export default function DashboardPage() {
               <div className="text-center">
                 <button
                   onClick={() => setLimit((prev) => prev + 3)}
-                  className="text-sm font-semibold text-gray-500"
+                  className="text-sm font-semibold text-gray-500 hover:text-black"
                 >
                   Load More
                 </button>
@@ -197,7 +214,7 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* NAV */}
+          {/* BOTTOM NAV */}
           <div className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around py-3 text-xs">
             <div className="flex flex-col items-center text-black">
               <FiHome />
