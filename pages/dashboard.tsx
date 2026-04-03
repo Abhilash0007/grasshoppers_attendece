@@ -9,18 +9,21 @@ import { SwipePunch } from '@/components/SwipePunch';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+
   const [time, setTime] = React.useState(new Date());
   const [limit, setLimit] = React.useState(3);
   const [workTime, setWorkTime] = React.useState(0);
   const [isMobile, setIsMobile] = React.useState(false);
 
-  // Detect mobile vs desktop
+  // Detect mobile
   React.useEffect(() => {
     const checkDevice = () => {
       setIsMobile(window.innerWidth < 768);
     };
+
     checkDevice();
     window.addEventListener('resize', checkDevice);
+
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
@@ -36,22 +39,23 @@ export default function DashboardPage() {
 
   const today = history?.[0];
 
-  // Check if today punched
   const isToday =
     today?.punchInTime &&
     new Date(today.punchInTime).toDateString() === new Date().toDateString();
 
-  // Live work timer
-  React.useEffect(() => {
+  // ✅ FIXED useEffect
+  React.useEffect((): void | (() => void) => {
     if (isToday && today?.punchInTime && !today?.punchOutTime) {
       const interval = setInterval(() => {
         const start = new Date(today.punchInTime).getTime();
-        const now = new Date().getTime();
+        const now = Date.now();
         setWorkTime(Math.floor((now - start) / 1000));
       }, 1000);
 
       return () => clearInterval(interval);
     }
+
+    return; // ✅ important
   }, [today, isToday]);
 
   const formatWorkTime = (sec: number) => {
@@ -61,7 +65,6 @@ export default function DashboardPage() {
     return `${h}h ${m}m ${s}s`;
   };
 
-  // Status logic
   const status = !isToday
     ? 'Not Punched'
     : today?.punchOutTime
@@ -86,67 +89,61 @@ export default function DashboardPage() {
           {/* CONTENT */}
           <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-6">
 
-            {/* PREMIUM PUNCH CARD */}
-            <div className="relative rounded-3xl p-6 text-white shadow-2xl overflow-hidden bg-gradient-to-br from-black via-gray-900 to-gray-800">
+            {/* PUNCH CARD */}
+            <div className="relative rounded-3xl p-6 text-white shadow-2xl bg-gradient-to-br from-black via-gray-900 to-gray-800">
 
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 to-blue-500/10 blur-2xl opacity-40" />
+              <p className="text-xs opacity-70">Current Time</p>
 
-              <div className="relative z-10">
-                <p className="text-xs opacity-70">Current Time</p>
+              <p className="text-3xl font-bold tracking-widest mt-1">
+                {format(time, 'HH:mm:ss')}
+              </p>
 
-                <p className="text-3xl font-bold tracking-widest mt-1 animate-pulse">
-                  {format(time, 'HH:mm:ss')}
-                </p>
+              {/* STATUS */}
+              <div className="mt-4 flex justify-between items-center">
+                <span className="text-sm opacity-80">Status</span>
 
-                {/* STATUS */}
-                <div className="mt-4 flex justify-between items-center">
-                  <span className="text-sm opacity-80">Status</span>
+                <span
+                  className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                    status === 'Working'
+                      ? 'bg-green-500/20 text-green-400'
+                      : status === 'Completed'
+                      ? 'bg-blue-500/20 text-blue-400'
+                      : 'bg-gray-500/20 text-gray-300'
+                  }`}
+                >
+                  {status}
+                </span>
+              </div>
 
-                  <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                      status === 'Working'
-                        ? 'bg-green-500/20 text-green-400'
-                        : status === 'Completed'
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : 'bg-gray-500/20 text-gray-300'
-                    }`}
+              {/* TIMER */}
+              {status === 'Working' && (
+                <div className="mt-3 text-xs text-green-300">
+                  ⏱ {formatWorkTime(workTime)}
+                </div>
+              )}
+
+              {/* BUTTON */}
+              <div className="mt-6">
+                {isMobile ? (
+                  <SwipePunch onPunch={() => mutate()} status={status} />
+                ) : (
+                  <button
+                    onClick={() => mutate()}
+                    className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold"
                   >
-                    {status}
-                  </span>
-                </div>
-
-                {/* LIVE TIMER */}
-                {status === 'Working' && (
-                  <div className="mt-3 text-xs text-green-300">
-                    ⏱ {formatWorkTime(workTime)}
-                  </div>
+                    {status === 'Working'
+                      ? 'Punch Out'
+                      : status === 'Completed'
+                      ? 'Completed'
+                      : 'Punch In'}
+                  </button>
                 )}
-
-                {/* ✅ DEVICE BASED BUTTON */}
-                <div className="mt-6">
-                  {isMobile ? (
-<SwipePunch
-  onPunch={() => mutate()}
-  status={status}
-/>                  ) : (
-                    <button
-                      onClick={() => mutate()}
-                      className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold shadow-lg transition active:scale-95"
-                    >
-                      {status === 'Working'
-                        ? 'Punch Out'
-                        : status === 'Completed'
-                        ? 'Completed'
-                        : 'Punch In'}
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
 
             {/* STATS */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/70 backdrop-blur-xl border border-gray-200 p-4 rounded-2xl shadow-sm">
+              <div className="bg-white p-4 rounded-2xl shadow-sm">
                 <p className="text-xs text-gray-400">In Time</p>
                 <h3 className="text-lg font-bold">
                   {today?.punchInTime
@@ -155,7 +152,7 @@ export default function DashboardPage() {
                 </h3>
               </div>
 
-              <div className="bg-white/70 backdrop-blur-xl border border-gray-200 p-4 rounded-2xl shadow-sm">
+              <div className="bg-white p-4 rounded-2xl shadow-sm">
                 <p className="text-xs text-gray-400">Out Time</p>
                 <h3 className="text-lg font-bold">
                   {today?.punchOutTime
@@ -165,27 +162,20 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* TIMELINE */}
+            {/* HISTORY */}
             <div className="space-y-4">
               <h2 className="text-sm font-semibold text-gray-500">
                 Recent Activity
               </h2>
 
               {history?.map((item, index) => (
-                <div
-                  key={index}
-                  className="relative bg-white/80 backdrop-blur-xl border border-gray-200 p-4 rounded-2xl shadow-sm"
-                >
-                  <div className="absolute left-[-6px] top-5 w-3 h-3 bg-green-500 rounded-full" />
-
+                <div key={index} className="bg-white p-4 rounded-2xl shadow-sm">
                   <p className="text-xs text-gray-400">
                     {format(new Date(item.punchInTime), 'EEE, MMM d')}
                   </p>
 
                   <div className="flex justify-between mt-1 text-sm font-semibold">
-                    <span>
-                      {format(new Date(item.punchInTime), 'HH:mm')}
-                    </span>
+                    <span>{format(new Date(item.punchInTime), 'HH:mm')}</span>
                     <span>
                       {item.punchOutTime
                         ? format(new Date(item.punchOutTime), 'HH:mm')
@@ -195,20 +185,20 @@ export default function DashboardPage() {
                 </div>
               ))}
 
-              {/* LOAD MORE */}
               <div className="text-center">
                 <button
                   onClick={() => setLimit((prev) => prev + 3)}
-                  className="text-sm font-semibold text-gray-500 hover:text-black"
+                  className="text-sm font-semibold text-gray-500"
                 >
                   Load More
                 </button>
               </div>
             </div>
+
           </div>
 
-          {/* BOTTOM NAV */}
-          <div className="fixed bottom-0 w-full max-w-md bg-white/80 backdrop-blur-xl border-t flex justify-around py-3 text-xs shadow-lg">
+          {/* NAV */}
+          <div className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around py-3 text-xs">
             <div className="flex flex-col items-center text-black">
               <FiHome />
               Home
@@ -222,6 +212,7 @@ export default function DashboardPage() {
               Stats
             </div>
           </div>
+
         </div>
       </div>
     </PrivateRoute>
