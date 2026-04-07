@@ -70,15 +70,9 @@ export default async function handler(
     await activePunch.save();
 
     // Send notifications
-    const admin = await User.findOne({ role: 'admin' });
     const user = await User.findById(userId);
     
-    if (admin && user) {
-      // Send email notification
-      if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-        await sendPunchNotificationEmail(admin.email, user.name, 'punch-out', now);
-      }
-
+    if (user) {
       // Send push notification to user device
       if (process.env.ENABLE_PUSH_NOTIFICATIONS === 'true' && user.pushSubscription) {
         try {
@@ -95,6 +89,23 @@ export default async function handler(
         } catch (pushError) {
           console.error('Error sending push notification:', pushError);
         }
+      }
+
+      // Notify admins asynchronously
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/punch-alert`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeId: userId,
+            employeeName: user.name,
+            actionType: 'out',
+            latitude,
+            longitude,
+          }),
+        });
+      } catch (err) {
+        console.error('Error notifying admins:', err);
       }
     }
 

@@ -66,6 +66,24 @@ export default async function handler(
 
       await holiday.save();
 
+      // Send notifications asynchronously
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/send-holiday`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            holidayName: name,
+            holidayDate: date,
+            holidayDescription: description,
+          }),
+        });
+      } catch (err) {
+        console.error('Error sending holiday notifications:', err);
+      }
+
       return res.status(201).json({
         success: true,
         data: holiday,

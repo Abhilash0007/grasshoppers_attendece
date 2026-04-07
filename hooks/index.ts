@@ -5,28 +5,34 @@ export const useGeolocation = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const getLocation = () => {
-    setIsLoading(true);
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by this browser');
-      setIsLoading(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setError(null);
+  const getLocation = (): Promise<{ latitude: number; longitude: number } | null> => {
+    return new Promise((resolve) => {
+      setIsLoading(true);
+      if (!navigator.geolocation) {
+        setError('Geolocation is not supported by this browser');
         setIsLoading(false);
-      },
-      (err) => {
-        setError(err.message);
-        setIsLoading(false);
+        resolve(null);
+        return;
       }
-    );
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const loc = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          };
+          setLocation(loc);
+          setError(null);
+          setIsLoading(false);
+          resolve(loc);
+        },
+        (err) => {
+          setError(err.message);
+          setIsLoading(false);
+          resolve(null);
+        }
+      );
+    });
   };
 
   return { location, error, isLoading, getLocation };

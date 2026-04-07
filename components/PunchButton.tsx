@@ -33,15 +33,16 @@ React.useEffect(() => {
     try {
       setIsLoading(true);
       
-      // Get location
-      if (!location) {
-        getLocation();
+      // Get location and wait for it
+      let geoLocation = location;
+      if (!geoLocation) {
+        geoLocation = await getLocation();
       }
 
       const endpoint = type === 'in' ? '/api/punch/in' : '/api/punch/out';
       const data = await post<{ success: boolean; data: PunchRecord; error?: string }>(endpoint, {
-        latitude: location?.latitude || 0,
-        longitude: location?.longitude || 0,
+        latitude: geoLocation?.latitude || 0,
+        longitude: geoLocation?.longitude || 0,
       });
 
       if (data.success) {

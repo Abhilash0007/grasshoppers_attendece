@@ -225,6 +225,20 @@ export default function AdminPunchHistory() {
                   </div>
                 </div>
 
+                {/* LOCATION INFO */}
+                <div className="mt-3 text-xs space-y-1">
+                  {r.punchInLocation && (
+                    <p className="text-gray-500">
+                      📍 In: {r.punchInLocation.latitude?.toFixed(4)}, {r.punchInLocation.longitude?.toFixed(4)}
+                    </p>
+                  )}
+                  {r.punchOutLocation && (
+                    <p className="text-gray-500">
+                      📍 Out: {r.punchOutLocation.latitude?.toFixed(4)}, {r.punchOutLocation.longitude?.toFixed(4)}
+                    </p>
+                  )}
+                </div>
+
                 {/* STATUS BADGE */}
                 <div className="mt-3">
                   <span

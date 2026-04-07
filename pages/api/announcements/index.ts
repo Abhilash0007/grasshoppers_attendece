@@ -13,6 +13,7 @@ export default async function handler(
     if (req.method === 'GET') {
       // Get announcements - allow public access but filter based on authentication
       let userId = null;
+      let isAdmin = false;
 
       // Try to get user from token if provided
       const token = req.headers.authorization?.split(' ')[1];
@@ -20,6 +21,7 @@ export default async function handler(
         try {
           const payload = verifyToken(token);
           userId = payload?.userId;
+          isAdmin = payload?.role === 'admin';
         } catch {
           // Invalid token, treat as non-authenticated
         }
@@ -29,9 +31,11 @@ export default async function handler(
 
       if (userId) {
         // Show announcements for all or specific to this user
+        // Admins can always see announcements they created
         query.$or = [
           { recipients: 'all' },
-          { recipients: { $in: [userId] } }
+          { recipients: { $in: [userId] } },
+          ...(isAdmin ? [{ adminId: userId }] : [])  // Admin sees their own announcements
         ];
       } else {
         // For non-authenticated, only show 'all' announcements
@@ -80,6 +84,24 @@ export default async function handler(
       });
 
       await announcement.save();
+
+      // Send notifications asynchronously
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/send-announcement`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            announcementTitle: title,
+            announcementDescription: description,
+            recipients,
+          }),
+        });
+      } catch (err) {
+        console.error('Error sending announcement notifications:', err);
+      }
 
       return res.status(201).json({
         success: true,
