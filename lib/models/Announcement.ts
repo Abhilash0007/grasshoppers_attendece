@@ -10,6 +10,7 @@ export interface IAnnouncement extends Document {
   updatedAt: Date;
   priority: 'low' | 'medium' | 'high';
   visible: boolean;
+  recipients: 'all' | mongoose.Types.ObjectId[]; // 'all' or array of user IDs
 }
 
 const AnnouncementSchema = new Schema<IAnnouncement>(
@@ -46,6 +47,16 @@ const AnnouncementSchema = new Schema<IAnnouncement>(
     visible: {
       type: Boolean,
       default: true,
+    },
+    recipients: {
+      type: mongoose.Schema.Types.Mixed, // Can be 'all' or array of ObjectIds
+      default: 'all',
+      validate: {
+        validator: function(v: any) {
+          return v === 'all' || (Array.isArray(v) && v.every(id => mongoose.Types.ObjectId.isValid(id)));
+        },
+        message: 'Recipients must be "all" or an array of valid ObjectIds'
+      }
     },
   },
   {

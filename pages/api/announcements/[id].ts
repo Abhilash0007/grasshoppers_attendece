@@ -52,13 +52,14 @@ export default async function handler(
       }
 
       if (req.method === 'PUT') {
-        const { title, description, content, priority, visible } = req.body;
+        const { title, description, content, priority, visible, recipients } = req.body;
 
         if (title) announcement.title = title;
         if (description) announcement.description = description;
         if (content) announcement.content = content;
         if (priority) announcement.priority = priority;
         if (visible !== undefined) announcement.visible = visible;
+        if (recipients !== undefined) announcement.recipients = recipients;
 
         await announcement.save();
 

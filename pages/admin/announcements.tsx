@@ -12,6 +12,7 @@ interface Announcement {
   description: string;
   content: string;
   priority: 'low' | 'medium' | 'high';
+  recipients: 'all' | string[]; // 'all' or array of user IDs
   createdAt: string;
   adminName: string;
 }
@@ -19,6 +20,7 @@ interface Announcement {
 export default function AdminAnnouncements() {
   const { token } = useAuth();
   const { data: announcements, mutate } = useApi<Announcement[]>('/api/announcements');
+  const { data: employees } = useApi<any[]>('/api/admin/employees');
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -29,6 +31,9 @@ export default function AdminAnnouncements() {
     description: '',
     content: '',
     priority: 'medium' as 'low' | 'medium' | 'high',
+    recipients: 'all' as 'all' | string[],
+    selectedEmployees: [] as string[],
+    visible: true,
   });
 
   // ✅ FIXED
@@ -48,13 +53,22 @@ export default function AdminAnnouncements() {
         ? `/api/announcements/${editingId}`
         : '/api/announcements';
 
+      const bodyData = {
+        title: formData.title,
+        description: formData.description,
+        content: formData.content,
+        priority: formData.priority,
+        recipients: formData.recipients === 'all' ? 'all' : formData.selectedEmployees,
+        visible: formData.visible,
+      };
+
       const res = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(bodyData),
       });
 
       if (!res.ok) throw new Error('Failed');
@@ -66,6 +80,9 @@ export default function AdminAnnouncements() {
         description: '',
         content: '',
         priority: 'medium',
+        recipients: 'all',
+        selectedEmployees: [],
+        visible: true,
       });
 
       setEditingId(null);
@@ -109,6 +126,9 @@ export default function AdminAnnouncements() {
       description: a.description,
       content: a.content,
       priority: a.priority,
+      recipients: a.recipients === 'all' ? 'all' : (Array.isArray(a.recipients) ? a.recipients : []),
+      selectedEmployees: Array.isArray(a.recipients) ? a.recipients : [],
+      visible: (a as any).visible ?? true,
     });
 
     setEditingId(a._id);
@@ -205,6 +225,65 @@ export default function AdminAnnouncements() {
                   <option value="medium">Medium</option>
                   <option value="high">High</option>
                 </select>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Send to:</label>
+                  <select
+                    value={formData.recipients === 'all' ? 'all' : 'individuals'}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        recipients: e.target.value === 'all' ? 'all' : formData.selectedEmployees,
+                        selectedEmployees: e.target.value === 'all' ? [] : formData.selectedEmployees,
+                      })
+                    }
+                    className="w-full border border-gray-200 px-4 py-2 rounded-xl"
+                  >
+                    <option value="all">All Employees</option>
+                    <option value="individuals">Specific Employees</option>
+                  </select>
+                </div>
+
+                {formData.recipients !== 'all' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Employees:</label>
+                    <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-xl p-2">
+                      {employees?.map((emp) => (
+                        <label key={emp._id} className="flex items-center gap-2 py-1">
+                          <input
+                            type="checkbox"
+                            checked={formData.selectedEmployees.includes(emp._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  selectedEmployees: [...formData.selectedEmployees, emp._id],
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  selectedEmployees: formData.selectedEmployees.filter(id => id !== emp._id),
+                                });
+                              }
+                            }}
+                          />
+                          <span className="text-sm">{emp.name} ({emp.email})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.visible}
+                    onChange={(e) =>
+                      setFormData({ ...formData, visible: e.target.checked })
+                    }
+                  />
+                  <span className="text-sm text-gray-700">Visible to recipients</span>
+                </label>
 
                 <button
                   type="submit"

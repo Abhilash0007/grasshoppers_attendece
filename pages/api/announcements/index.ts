@@ -11,8 +11,34 @@ export default async function handler(
     await connectDB();
 
     if (req.method === 'GET') {
-      // Get all visible announcements
-      const announcements = await Announcement.find({ visible: true })
+      // Get announcements - allow public access but filter based on authentication
+      let userId = null;
+
+      // Try to get user from token if provided
+      const token = req.headers.authorization?.split(' ')[1];
+      if (token) {
+        try {
+          const payload = verifyToken(token);
+          userId = payload?.userId;
+        } catch {
+          // Invalid token, treat as non-authenticated
+        }
+      }
+
+      const query: any = { visible: true };
+
+      if (userId) {
+        // Show announcements for all or specific to this user
+        query.$or = [
+          { recipients: 'all' },
+          { recipients: { $in: [userId] } }
+        ];
+      } else {
+        // For non-authenticated, only show 'all' announcements
+        query.recipients = 'all';
+      }
+
+      const announcements = await Announcement.find(query)
         .sort({ createdAt: -1 })
         .select('-content'); // Don't send full content in list
 
@@ -34,7 +60,7 @@ export default async function handler(
         return res.status(403).json({ success: false, error: 'Admin access required' });
       }
 
-      const { title, description, content, priority = 'medium' } = req.body;
+      const { title, description, content, priority = 'medium', recipients = 'all' } = req.body;
 
       if (!title || !description || !content) {
         return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -50,6 +76,7 @@ export default async function handler(
         adminId: payload.userId,
         adminName,
         visible: true,
+        recipients,
       });
 
       await announcement.save();

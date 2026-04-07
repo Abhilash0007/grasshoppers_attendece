@@ -8,6 +8,7 @@ import { useApiCall } from '@/hooks/useApi';
 import { PunchRecord } from '@/types';
 import { format } from 'date-fns';
 import { FiHome, FiUsers, FiBarChart2 } from 'react-icons/fi';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
@@ -17,6 +18,9 @@ export default function DashboardPage() {
   const [time, setTime] = React.useState(new Date());
   const [limit, setLimit] = React.useState(3);
   const [workTime, setWorkTime] = React.useState(0);
+
+  // 🔥 Optimistic UI state
+  const [localToday, setLocalToday] = React.useState<PunchRecord | null>(null);
 
   // Live clock
   React.useEffect(() => {
@@ -28,26 +32,25 @@ export default function DashboardPage() {
     `/api/punch/history?limit=${limit}`
   );
 
-  const today = history?.[0];
+  // ✅ Use local state first
+  const today = localToday || history?.[0];
 
   const isToday =
     today?.punchInTime &&
     new Date(today.punchInTime).toDateString() === new Date().toDateString();
 
-  // Work timer
-React.useEffect(() => {
-  if (!(isToday && today?.punchInTime && !today?.punchOutTime)) {
-    return;
-  }
+  // ✅ Live work timer
+  React.useEffect(() => {
+    if (!(isToday && today?.punchInTime && !today?.punchOutTime)) return;
 
-  const interval = setInterval(() => {
-    const start = new Date(today.punchInTime).getTime();
-    const now = Date.now();
-    setWorkTime(Math.floor((now - start) / 1000));
-  }, 1000);
+    const interval = setInterval(() => {
+      const start = new Date(today.punchInTime).getTime();
+      const now = Date.now();
+      setWorkTime(Math.floor((now - start) / 1000));
+    }, 1000);
 
-  return () => clearInterval(interval);
-}, [today, isToday]);
+    return () => clearInterval(interval);
+  }, [today, isToday]);
 
   const formatWorkTime = (sec: number) => {
     const h = Math.floor(sec / 3600);
@@ -59,20 +62,48 @@ React.useEffect(() => {
   const status =
     !isToday ? 'Not Punched' : today?.punchOutTime ? 'Completed' : 'Working';
 
-  // Punch handler
+  // ✅ FIXED HANDLE PUNCH (NO TS ERROR + INSTANT UI)
   const handlePunch = async () => {
     try {
-      const endpoint =
-        status === 'Working' ? '/api/punch/out' : '/api/punch/in';
+      const isPunchOut = status === 'Working';
+
+      // ⚡ Optimistic update (use Date, not string)
+      if (today) {
+        if (isPunchOut) {
+          setLocalToday({
+            ...today,
+            punchOutTime: new Date(),
+          });
+        } else {
+          setLocalToday({
+            ...today,
+            punchInTime: new Date(),
+            punchOutTime: undefined,
+          });
+        }
+      } else {
+        setLocalToday({
+          _id: 'temp',
+          punchInTime: new Date(),
+        } as PunchRecord);
+      }
+
+      const endpoint = isPunchOut
+        ? '/api/punch/out'
+        : '/api/punch/in';
 
       await post(endpoint, {});
 
       toast.success(
-        status === 'Working' ? 'Punched Out ✅' : 'Punched In ✅'
+        isPunchOut ? 'Punched Out ✅' : 'Punched In ✅'
       );
 
-      mutate();
+      // 🔄 Sync real data
+      await mutate();
+      setLocalToday(null);
+
     } catch (err: any) {
+      setLocalToday(null);
       toast.error(err.message || 'Punch failed');
     }
   };
@@ -95,7 +126,7 @@ React.useEffect(() => {
           {/* CONTENT */}
           <div className="flex-1 overflow-y-auto px-4 pb-32 space-y-6">
 
-            {/* PUNCH CARD */}
+            {/* PREMIUM PUNCH CARD */}
             <div className="rounded-3xl p-6 text-white shadow-2xl bg-gradient-to-br from-black via-gray-900 to-gray-800">
 
               <p className="text-xs opacity-70">Current Time</p>
@@ -128,14 +159,14 @@ React.useEffect(() => {
                 </div>
               )}
 
-              {/* 🔥 PREMIUM BUTTON */}
+              {/* BUTTON */}
               <div className="mt-6">
                 <button
                   onClick={handlePunch}
                   disabled={status === 'Completed'}
                   className={`
-                    relative w-full py-4 rounded-2xl font-semibold text-lg tracking-wide
-                    transition-all duration-300 active:scale-95 overflow-hidden
+                    w-full py-4 rounded-2xl font-semibold text-lg
+                    transition-all duration-300 active:scale-95
                     ${
                       status === 'Working'
                         ? 'bg-gradient-to-r from-red-500 to-pink-600 shadow-lg shadow-red-500/30'
@@ -145,17 +176,11 @@ React.useEffect(() => {
                     }
                   `}
                 >
-                  {/* Glow */}
-                  <span className="absolute inset-0 bg-white/10 blur-xl opacity-30" />
-
-                  {/* Text */}
-                  <span className="relative z-10 text-white">
-                    {status === 'Working'
-                      ? 'Punch Out ⏳'
-                      : status === 'Completed'
-                      ? 'Completed ✅'
-                      : 'Punch In 🚀'}
-                  </span>
+                  {status === 'Working'
+                    ? 'Punch Out ⏳'
+                    : status === 'Completed'
+                    ? 'Completed ✅'
+                    : 'Punch In 🚀'}
                 </button>
               </div>
             </div>
@@ -218,18 +243,18 @@ React.useEffect(() => {
 
           {/* BOTTOM NAV */}
           <div className="fixed bottom-0 w-full max-w-md bg-white border-t flex justify-around py-3 text-xs">
-            <div className="flex flex-col items-center text-black">
+            <Link href="/dashboard" className="flex flex-col items-center text-black">
               <FiHome />
               Home
-            </div>
-            <div className="flex flex-col items-center text-gray-400">
+            </Link>
+            <Link href="/teams" className="flex flex-col items-center text-gray-400 hover:text-black">
               <FiUsers />
               Team
-            </div>
-            <div className="flex flex-col items-center text-gray-400">
+            </Link>
+            <Link href="/stats" className="flex flex-col items-center text-gray-400 hover:text-black">
               <FiBarChart2 />
               Stats
-            </div>
+            </Link>
           </div>
 
         </div>

@@ -12,11 +12,22 @@ export default function AdminPunchHistory() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10); // Show 10 records per page
+
+  const skip = (page - 1) * limit;
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [selectedEmployee, startDate, endDate]);
 
   const query = new URLSearchParams({
     employeeId: selectedEmployee || '',
     startDate,
     endDate,
+    limit: limit.toString(),
+    skip: skip.toString(),
   }).toString();
 
   const { data: employees } = useApi<any[]>('/api/admin/employees');
@@ -24,9 +35,44 @@ export default function AdminPunchHistory() {
 
   const records = punchData?.data || [];
   const stats = punchData?.statistics || {};
+  const pagination = punchData?.pagination || {};
+  const totalPages = Math.ceil((pagination.total || 0) / limit);
 
   const formatTime = (date: string) => format(new Date(date), 'hh:mm a');
   const formatDate = (date: string) => format(new Date(date), 'dd MMM');
+
+  const handleDownload = () => {
+    if (!records.length) {
+      alert('No records to download');
+      return;
+    }
+
+    // Create CSV content
+    const headers = ['Date', 'Employee Name', 'Email', 'Punch In', 'Punch Out', 'Duration (minutes)', 'Status'];
+    const csvContent = [
+      headers.join(','),
+      ...records.map((r: any) => [
+        formatDate(r.date),
+        `"${r.userId.name}"`,
+        `"${r.userId.email}"`,
+        r.punchInTime ? formatTime(r.punchInTime) : '',
+        r.punchOutTime ? formatTime(r.punchOutTime) : '',
+        r.workDuration || '',
+        r.status
+      ].join(','))
+    ].join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `punch-history-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <PrivateRoute requiredRole="admin">
@@ -52,6 +98,7 @@ export default function AdminPunchHistory() {
               <FiFilter />
             </button>
             <button
+              onClick={handleDownload}
               className="p-2 bg-green-500 text-white rounded-full shadow"
             >
               <FiDownload />
@@ -194,6 +241,31 @@ export default function AdminPunchHistory() {
             ))
           )}
         </div>
+
+        {/* PAGINATION */}
+        {totalPages > 1 && (
+          <div className="p-4 flex justify-center items-center gap-2">
+            <button
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+            >
+              Previous
+            </button>
+
+            <span className="text-sm text-gray-600">
+              Page {page} of {totalPages}
+            </span>
+
+            <button
+              onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </PrivateRoute>
   );
